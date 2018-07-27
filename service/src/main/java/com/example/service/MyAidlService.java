@@ -12,6 +12,10 @@ import com.example.service.bean.Person;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.atomic.AtomicBoolean;
+
+//import com.example.service.bean.INewPersonAddListener;
 
 
 /**
@@ -23,6 +27,11 @@ public class MyAidlService extends Service {
     private final String  TAG = this.getClass().getSimpleName();
 
     private ArrayList<Person> mPersons;
+
+    private AtomicBoolean mIsServiceDestroyed = new AtomicBoolean(false);
+
+    private CopyOnWriteArrayList<INewPersonListener> mListener =
+            new CopyOnWriteArrayList<>();
 
     /**
      * 创建生成本地的binder ,实现AIDL的方法
@@ -38,6 +47,30 @@ public class MyAidlService extends Service {
         public List<Person> getPersonList() throws RemoteException {
             return mPersons;
         }
+
+        @Override
+        public void registerListener(INewPersonListener listener) throws RemoteException {
+
+                if(!mListener.contains(listener)){
+                    mListener.add(listener);
+                }else{
+                    Log.i("xx","already exists");
+                }
+                Log.i("xx","registerListener.size::"+mListener.size());
+        }
+
+        @Override
+        public void unregisterListener(INewPersonListener listener) throws RemoteException {
+
+            if(mListener.contains(listener)){
+                mListener.remove(listener);
+                Log.i("xx","unregister listener succeed.");
+            }else{
+                Log.i("xx","not found, can not unregister.");
+            }
+            Log.i("xx","unregisterListener current size:"+mListener.size());
+        }
+
     };
 
     /**
@@ -55,5 +88,47 @@ public class MyAidlService extends Service {
     @Override
     public void onCreate() {
         super.onCreate();
+
+        new Thread(new ServiceWorker()).start();
+    }
+
+    private void onNewPersonAdd(Person person) throws RemoteException{
+
+        mPersons.add(person);
+
+        for(int i=0;i<mListener.size();i++){
+            INewPersonListener listener = mListener.get(i);
+            listener.onNewPerson(person);
+        }
+    }
+
+    private class ServiceWorker implements Runnable{
+
+        @Override
+        public void run() {
+            while (!mIsServiceDestroyed.get()){
+                try{
+                    Thread.sleep(5000);
+                }catch (Exception e){
+                    e.printStackTrace();
+                }
+
+                int personName = mPersons.size() + 1;
+                Person person = new Person("qianqian"+personName);
+
+                try{
+                    onNewPersonAdd(person);
+                }catch (Exception e){
+                    e.printStackTrace();
+                }
+
+            }
+        }
+    }
+
+    @Override
+    public void onDestroy() {
+        mIsServiceDestroyed.set(true);
+        super.onDestroy();
     }
 }

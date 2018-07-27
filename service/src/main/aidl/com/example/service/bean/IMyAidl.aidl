@@ -1,6 +1,7 @@
 // IMyAidl.aidl
 package com.example.service.bean;
 import com.example.service.bean.Person;
+import com.example.service.INewPersonListener;
 
 // Declare any non-default types here with import statements
 //可以理解为通信媒介
@@ -12,4 +13,7 @@ interface IMyAidl {
         void addPerson(in Person person);
 
         List<Person> getPersonList();
+
+        void registerListener(INewPersonListener listener);
+        void unregisterListener(INewPersonListener listener);
 }
